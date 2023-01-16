@@ -1,5 +1,6 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_test/vision_detector_views/painters/test_page.dart';
 
 import 'vision_detector_views/text_detector_view.dart';
 
@@ -42,8 +43,9 @@ class Home extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
-                children: [
+                children: const [
                   CustomCard('Text Recognition', TextRecognizerView()),
+                  CustomCard('test', TestPage()),
                 ],
               ),
             ),

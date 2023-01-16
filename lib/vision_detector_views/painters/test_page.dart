@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_test/vision_detector_views/painters/text_detector_painter.dart';
+import 'package:google_mlkit_test/vision_detector_views/test_view.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
-import 'camera_view.dart';
-import 'painters/text_detector_painter.dart';
-
-class TextRecognizerView extends StatefulWidget {
-  const TextRecognizerView({super.key});
+class TestPage extends StatefulWidget {
+  const TestPage({Key? key}) : super(key: key);
 
   @override
-  State<TextRecognizerView> createState() => _TextRecognizerViewState();
+  State<TestPage> createState() => _TestPageState();
 }
 
-class _TextRecognizerViewState extends State<TextRecognizerView> {
+class _TestPageState extends State<TestPage> {
   final TextRecognizer _textRecognizer =
       TextRecognizer(script: TextRecognitionScript.chinese);
   bool _canProcess = true;
@@ -28,7 +27,7 @@ class _TextRecognizerViewState extends State<TextRecognizerView> {
 
   @override
   Widget build(BuildContext context) {
-    return CameraView(
+    return TestView(
       title: 'Text Detector',
       customPaint: _customPaint,
       text: _text,
