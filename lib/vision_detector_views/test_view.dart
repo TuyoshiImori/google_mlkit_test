@@ -4,6 +4,8 @@ import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_commons/google_mlkit_commons.dart';
+import 'package:google_mlkit_test/vision_detector_views/painters/coordinates_translator.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../main.dart';
@@ -16,7 +18,6 @@ class TestView extends StatefulWidget {
       required this.title,
       required this.customPaint,
       this.text,
-      required this.onImage,
       this.onScreenModeChanged,
       this.initialDirection = CameraLensDirection.back})
       : super(key: key);
@@ -24,7 +25,7 @@ class TestView extends StatefulWidget {
   final String title;
   final CustomPaint? customPaint;
   final String? text;
-  final Function(InputImage inputImage) onImage;
+
   final Function(ScreenMode mode)? onScreenModeChanged;
   final CameraLensDirection initialDirection;
 
@@ -40,7 +41,16 @@ class _TestViewState extends State<TestView> {
   ImagePicker? _imagePicker;
   int _cameraIndex = -1;
   final bool _allowPicker = true;
-  bool _changingCameraLens = false;
+  final bool _changingCameraLens = false;
+  final TextRecognizer textRecognizer =
+      TextRecognizer(script: TextRecognitionScript.chinese);
+  List<Offset> offsetList = [];
+  List<Widget> frameList = [];
+  List<Size> sizeList = [];
+  bool _canProcess = true;
+  bool _isBusy = false;
+  CustomPaint? _customPaint;
+  String? _text;
 
   @override
   void initState() {
@@ -77,14 +87,19 @@ class _TestViewState extends State<TestView> {
   @override
   void dispose() {
     _stopLiveFeed();
+    _canProcess = false;
+    textRecognizer.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(widget.title),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           if (_allowPicker)
             Padding(
@@ -114,9 +129,8 @@ class _TestViewState extends State<TestView> {
       width: 70.0,
       child: FloatingActionButton(
         onPressed: () async {
-          print('ほげほげ');
-          final image = await _controller?.takePicture();
-          _processPickedFile(image);
+          //final image = await _controller?.takePicture();
+          await takePicture();
         },
         child: Icon(
           Platform.isIOS
@@ -180,7 +194,24 @@ class _TestViewState extends State<TestView> {
                     : Image.file(_image!),
               ),
             ),
-          if (widget.customPaint != null) widget.customPaint!,
+          //if (widget.customPaint != null) widget.customPaint!,
+          if (_image != null)
+            for (int i = 0; i < offsetList.length; i++)
+              Positioned(
+                left: offsetList[i].dx,
+                top: offsetList[i].dy,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (DragUpdateDetails details) {
+                    setState(() {
+                      offsetList[i] = offsetList[i] += details.delta;
+                    });
+                  },
+                  child: Container(
+                    child: frameList[i],
+                  ),
+                ),
+              ),
         ],
       ),
     );
@@ -265,7 +296,7 @@ class _TestViewState extends State<TestView> {
       if (!mounted) {
         return;
       }
-      _controller?.startImageStream(_processCameraImage);
+      //_controller?.startImageStream(_processCameraImage);
       setState(() {});
     });
   }
@@ -285,9 +316,9 @@ class _TestViewState extends State<TestView> {
       _image = File(path);
     });
     _path = path;
-    final inputImage = InputImage.fromFilePath(path);
-    widget.onImage(inputImage);
-    await _controller?.stopImageStream();
+    // final inputImage = InputImage.fromFilePath(path);
+    // processImage(inputImage);
+    // await _controller?.stopImageStream();
   }
 
   Future _processCameraImage(CameraImage image) async {
@@ -329,6 +360,99 @@ class _TestViewState extends State<TestView> {
     final inputImage =
         InputImage.fromBytes(bytes: bytes, inputImageData: inputImageData);
 
-    widget.onImage(inputImage);
+    processImage(inputImage);
+  }
+
+  Future<void> processImage(InputImage inputImage) async {
+    setState(() {
+      _text = '';
+    });
+    final recognizedText = await textRecognizer.processImage(inputImage);
+    if (inputImage.inputImageData?.size != null &&
+        inputImage.inputImageData?.imageRotation != null) {
+      // final painter = TextRecognizerPainter(
+      //   recognizedText,
+      //   inputImage.inputImageData!.size,
+      //   inputImage.inputImageData!.imageRotation,
+      // );
+      // _customPaint = CustomPaint(painter: painter);
+
+      final offsets = <Offset>[];
+      final frames = <Widget>[];
+      final sizes = <Size>[];
+      final height = MediaQuery.of(context).size.height;
+      final width = MediaQuery.of(context).size.width;
+      print(recognizedText.blocks.length);
+      for (var i = 0; i < recognizedText.blocks.length; i++) {
+        final left = translateX(
+          recognizedText.blocks[i].boundingBox.left,
+          inputImage.inputImageData!.imageRotation,
+          Size(width, height),
+          inputImage.inputImageData!.size,
+        );
+        final top = translateY(
+          recognizedText.blocks[i].boundingBox.top,
+          inputImage.inputImageData!.imageRotation,
+          Size(width, height),
+          inputImage.inputImageData!.size,
+        );
+        final right = translateX(
+          recognizedText.blocks[i].boundingBox.right,
+          inputImage.inputImageData!.imageRotation,
+          Size(width, height),
+          inputImage.inputImageData!.size,
+        );
+        final bottom = translateY(
+          recognizedText.blocks[i].boundingBox.bottom,
+          inputImage.inputImageData!.imageRotation,
+          Size(width, height),
+          inputImage.inputImageData!.size,
+        );
+        final frame = GestureDetector(
+          onTap: () {
+            print(recognizedText.blocks[i].text);
+          },
+          child: Container(
+            height: bottom - top,
+            width: right - left,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.red,
+                width: 3,
+              ),
+            ),
+          ),
+        );
+        final offset = Offset(left, top);
+        final size = Size(width, height);
+        frames.add(frame);
+        offsets.add(offset);
+        sizes.add(size);
+      }
+      setState(() {
+        frameList = frames;
+        offsetList = offsets;
+        sizeList = sizes;
+      });
+    } else {
+      _text = 'Recognized text:\n\n${recognizedText.text}';
+      // TODO: set _customPaint to draw boundingRect on top of image
+      _customPaint = null;
+    }
+    _isBusy = false;
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Future<void> takePicture() async {
+    if (_controller != null) {
+      final image = await _controller!.takePicture();
+      await _controller!.startImageStream((CameraImage cameraImage) async {
+        await _controller!.stopImageStream();
+        await _processPickedFile(image);
+        await _processCameraImage(cameraImage);
+      });
+    }
   }
 }

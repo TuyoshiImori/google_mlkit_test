@@ -1,8 +1,8 @@
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_test/camera_page/camera_page.dart';
 import 'package:google_mlkit_test/vision_detector_views/painters/test_page.dart';
-
-import 'vision_detector_views/text_detector_view.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 List<CameraDescription> cameras = [];
 
@@ -11,7 +11,12 @@ Future<void> main() async {
 
   cameras = await availableCameras();
 
-  runApp(const MyApp());
+  runApp(
+    const ProviderScope(
+      child: MyApp(),
+    ),
+  );
+  // runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -44,8 +49,9 @@ class Home extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: const [
-                  CustomCard('Text Recognition', TextRecognizerView()),
-                  CustomCard('test', TestPage()),
+                  //CustomCard('Text Recognition', TextRecognizerView()),
+                  CustomCard('ドラッグタイプ', TestPage()),
+                  CustomCard('フレームタイプ', CameraPage()),
                 ],
               ),
             ),
